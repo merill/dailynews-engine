@@ -1,0 +1,64 @@
+name: Set up the dailynews engine
+description: >
+  Installs the engine's dependencies and links it into the calling product
+  repository, so `dailynews <command>` and `require('@merill/dailynews-engine/...')`
+  both resolve. Reaching the engine through a composite action rather than an npm
+  dependency is what keeps a private engine usable from a private product repo
+  without a personal access token: GitHub checks the engine out with the calling
+  workflow's own token.
+
+inputs:
+  node-version:
+    description: Node version to set up.
+    required: false
+    default: '22'
+
+outputs:
+  engine-path:
+    description: Absolute path to the engine checkout.
+    value: ${{ steps.locate.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Locate the engine checkout
+      id: locate
+      shell: bash
+      run: |
+        # $GITHUB_ACTION_PATH is <engine>/.github/actions/setup.
+        ENGINE="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        test -f "$ENGINE/package.json" || { echo "::error::engine package.json not found at $ENGINE"; exit 1; }
+        echo "path=$ENGINE" >> "$GITHUB_OUTPUT"
+        echo "DAILYNEWS_ENGINE=$ENGINE" >> "$GITHUB_ENV"
+
+    - name: Set up Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ steps.locate.outputs.path }}/package-lock.json
+
+    - name: Install the engine's dependencies
+      shell: bash
+      working-directory: ${{ steps.locate.outputs.path }}
+      run: npm ci
+
+    - name: Link the engine into the workspace
+      shell: bash
+      run: |
+        ENGINE='${{ steps.locate.outputs.path }}'
+        mkdir -p node_modules/@merill
+        rm -rf node_modules/@merill/dailynews-engine
+        ln -s "$ENGINE" node_modules/@merill/dailynews-engine
+        # Put `dailynews` on PATH for the rest of the job.
+        mkdir -p "$RUNNER_TEMP/dailynews-bin"
+        ln -sf "$ENGINE/bin/dailynews.js" "$RUNNER_TEMP/dailynews-bin/dailynews"
+        chmod +x "$ENGINE/bin/dailynews.js"
+        echo "$RUNNER_TEMP/dailynews-bin" >> "$GITHUB_PATH"
+
+    - name: Report what was linked
+      shell: bash
+      run: |
+        echo "engine: $(node -p "require('@merill/dailynews-engine/package.json').version" 2>/dev/null || echo unresolved)"
+        node -e "require('@merill/dailynews-engine/package.json')" \
+          || { echo "::error::the engine did not resolve from the workspace"; exit 1; }
