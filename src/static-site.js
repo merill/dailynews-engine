@@ -671,10 +671,12 @@ class StaticSiteGenerator {
   }
 
   emailSubscribeBox() {
+    if (!config.email.enabled) return '';
     return `<div class="rss-box"><img src="/assets/ui/envelope-open.svg" alt=""><a class="daily-email-trigger" href="/about/?subscribe=daily" data-daily-email-open aria-haspopup="dialog" aria-controls="daily-email-dialog">Get daily email updates</a></div>`;
   }
 
   dailyEmailDialogs() {
+    if (!config.email.enabled) return '';
     return `<dialog class="daily-email-dialog" id="daily-email-dialog" data-daily-email-dialog aria-labelledby="daily-email-dialog-title" aria-describedby="daily-email-dialog-intro"><div class="daily-email-dialog-card"><button class="daily-email-dialog-close" type="button" data-daily-email-close aria-label="Close email signup">×</button><div class="eyebrow">${config.copy.dailyEmail.eyebrow}</div><h2 id="daily-email-dialog-title">Get daily email updates</h2><p class="daily-email-dialog-intro" id="daily-email-dialog-intro">${config.copy.dailyEmail.intro}</p>${this.dailyEmailForm()}</div></dialog>`;
   }
 
@@ -1168,7 +1170,7 @@ class StaticSiteGenerator {
       <div class="about-layout"><main class="about-main">
         <section class="about-hero"><div class="about-kicker"><img src="${config.brand.aboutIcon}" alt=""><div class="eyebrow">About ${SITE.name}</div></div><h1>${about.heading}</h1><p class="lede">${about.lede}</p></section>
         <div class="about-pair"><section class="about-section"><h2>Why it exists</h2>${paragraphs(about.whyItExists)}</section><section class="about-section"><h2>How it works</h2>${paragraphs(about.howItWorks)}</section></div>
-        <section class="about-section daily-email-signup" id="daily-email"><div class="eyebrow">${about.emailEyebrow}</div><h2>Get the daily update by email</h2><p>${about.emailBody}</p><a class="daily-email-trigger" href="/about/?subscribe=daily" data-daily-email-open aria-haspopup="dialog" aria-controls="daily-email-dialog">Subscribe to daily updates</a></section>${extraSections}
+        ${config.email.enabled ? `<section class="about-section daily-email-signup" id="daily-email"><div class="eyebrow">${about.emailEyebrow}</div><h2>Get the daily update by email</h2><p>${about.emailBody}</p><a class="daily-email-trigger" href="/about/?subscribe=daily" data-daily-email-open aria-haspopup="dialog" aria-controls="daily-email-dialog">Subscribe to daily updates</a></section>` : ''}${extraSections}
         <section class="about-section"><h2>Made for the community</h2>${paragraphs(about.community)}</section>
         <blockquote class="community-note"><p>${about.quote}</p></blockquote>
       </main><aside class="about-aside"><h2 class="rail-heading">Built by Merill</h2><p>${about.bio}</p><hr class="rail-rule"><h2 class="rail-heading">Stay current</h2><ul class="plain-list stay-current"><li><a href="/about/?subscribe=daily" data-daily-email-open aria-haspopup="dialog" aria-controls="daily-email-dialog">Get daily email updates</a></li>${stayCurrent}</ul><hr class="rail-rule"><h2 class="rail-heading">Explore</h2><ul class="plain-list"><li><a href="/">Latest day</a></li><li><a href="/week/">Current week</a></li><li><a href="/month/">Month archive</a></li><li><a href="/products/">Browse products</a></li><li><a href="/topics/">Browse topics</a></li><li><a href="/message-center/">Message Center</a></li></ul><hr class="rail-rule"><h2 class="rail-heading">Follow the project</h2><ul class="plain-list">${followProject}</ul></aside></div>${this.footer()}`;

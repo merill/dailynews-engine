@@ -120,6 +120,16 @@ The same reasoning drives the two fixture profiles in `test/fixtures/profile.js`
 They share no vocabulary, so a value that leaks from one into the other's output
 is caught by name.
 
+## A product without email
+
+`email: { enabled: false }` removes every subscriber-signup affordance: the rail
+box, the dialog, and the about-page section. Without it a product that has no
+Kit form still advertises "Get daily email updates" and opens a dialog that can
+only report that the form is not configured.
+
+It defaults to on, so a product that says nothing keeps its email — which is
+true of every product that existed when this was added.
+
 ## Configuration
 
 `dailynews.config.js` in the product repository, validated by `src/config.js` on

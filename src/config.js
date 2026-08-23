@@ -257,6 +257,11 @@ function normalize(raw) {
       impactBoost: requireRegExp((raw.ai || {}).impactBoost, 'ai.impactBoost')
     },
     docs: normalizeDocs(raw.docs),
+    // A product without a subscriber list renders no signup affordances at all,
+    // rather than a form that cannot load. Defaults to on: a product that says
+    // nothing has an email, which is true of every product that existed when
+    // this was added.
+    email: { enabled: (raw.email || {}).enabled !== false },
     identity: {
       docEventPrefix: requireString((raw.identity || {}).docEventPrefix, 'identity.docEventPrefix'),
       batchEventPrefix: requireString((raw.identity || {}).batchEventPrefix, 'identity.batchEventPrefix'),
