@@ -28,6 +28,16 @@ jobs:
 
   # The setup action is what every product repository depends on, so it is
   # exercised here rather than only downstream.
+  #
+  # A local path checks this branch's version of the action, which is what a pull
+  # request needs — but it cannot reproduce how a product actually reaches it.
+  # There the engine is checked out into the runner's _actions directory, outside
+  # the caller's workspace, and that difference is not cosmetic: it is exactly
+  # what broke the first cutover attempt, because setup-node's
+  # cache-dependency-path only resolves paths inside the workspace.
+  #
+  # So both layouts are exercised: this job for the branch's code, and
+  # setup-action-as-consumed below for the real one.
   setup-action:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -41,3 +51,19 @@ jobs:
         run: |
           dailynews --help
           node -e "require('@merill/dailynews-engine/config')"
+
+  # Reaches the action the way a product repository does — cross-repository, so
+  # GitHub places it under _actions. `uses:` cannot take an expression, so this
+  # necessarily tests main rather than the current branch.
+  setup-action-as-consumed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: merill/dailynews-engine/.github/actions/setup@main
+      - name: The engine resolves from outside the workspace
+        run: |
+          dailynews --help
+          node -e "require('@merill/dailynews-engine/config')"
+          test -n "$DAILYNEWS_ENGINE"
+          echo "engine at $DAILYNEWS_ENGINE"

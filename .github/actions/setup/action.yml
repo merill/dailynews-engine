@@ -30,15 +30,26 @@ runs:
         test -f "$ENGINE/package.json" || { echo "::error::engine package.json not found at $ENGINE"; exit 1; }
         echo "path=$ENGINE" >> "$GITHUB_OUTPUT"
         echo "DAILYNEWS_ENGINE=$ENGINE" >> "$GITHUB_ENV"
+        # Computed here rather than with hashFiles(), which — like setup-node's
+        # cache-dependency-path — only resolves inside the caller's workspace.
+        # The engine is checked out into the runner's _actions directory, which
+        # is outside it.
+        echo "lock-hash=$(sha256sum "$ENGINE/package-lock.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
     - name: Set up Node
       uses: actions/setup-node@v5
       with:
         node-version: ${{ inputs.node-version }}
-        cache: npm
-        cache-dependency-path: ${{ steps.locate.outputs.path }}/package-lock.json
+
+    - name: Restore the engine's dependencies
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.locate.outputs.path }}/node_modules
+        key: dailynews-engine-${{ runner.os }}-node${{ inputs.node-version }}-${{ steps.locate.outputs.lock-hash }}
 
     - name: Install the engine's dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       working-directory: ${{ steps.locate.outputs.path }}
       run: npm ci
