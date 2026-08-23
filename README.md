@@ -68,6 +68,19 @@ Each subcommand runs its script in a child process rather than requiring it, so
 a script behaves identically whether it is reached through `dailynews` or run by
 path. That is what makes a cutover verifiable: the same file, run the same way.
 
+### Reaching a command as a module
+
+The CLI entry points keep their `module.exports` alongside their
+`require.main === module` guard, so a product's tests can drive one directly
+rather than shelling out:
+
+```js
+const { main } = require('@merill/dailynews-engine/publish-kit-broadcast');
+```
+
+`publish-kit-broadcast`, `generate-period-summaries` and
+`regenerate-diff-summaries` are exported this way.
+
 ## Dependencies
 
 Runtime dependencies are exactly these nine, and adding a tenth is a deliberate

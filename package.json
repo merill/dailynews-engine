@@ -19,6 +19,9 @@
     "./kit-publisher": "./src/kit-publisher.js",
     "./discord-publisher": "./src/discord-publisher.js",
     "./period-summaries": "./src/period-summaries.js",
+    "./publish-kit-broadcast": "./scripts/publish-kit-broadcast.js",
+    "./generate-period-summaries": "./scripts/generate-period-summaries.js",
+    "./regenerate-diff-summaries": "./scripts/regenerate-diff-summaries.js",
     "./package.json": "./package.json"
   },
   "scripts": {
