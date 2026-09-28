@@ -14,10 +14,22 @@ practice, no dependencies at all.
 | `merill/entra-doc-diff` | daily.entra.news | `MicrosoftDocs/entra-docs` |
 | `merill/daily-defender` | daily.defender.admin.news | `MicrosoftDocs/defender-docs` |
 
+Microsoft is taking these documentation repositories private. Each product has a
+mirror repository that [learn-mirror](https://github.com/merill/learn-mirror)
+rebuilds from Microsoft Learn itself — see
+[Mirroring Microsoft Learn](#mirroring-microsoft-learn).
+
+| Mirror repository | Stands in for | Product cut over |
+|---|---|---|
+| `merill/intune-docs-mirror` | `MicrosoftDocs/memdocs` | not yet |
+| `merill/defender-docs-mirror` | `MicrosoftDocs/defender-docs` | yes |
+| `merill/entra-docs-mirror` | `MicrosoftDocs/entra-docs` | not yet |
+
 ## Contents
 
 - [Architecture](#architecture) — how the pieces fit together
 - [What the engine does](#what-the-engine-does) — the feature set
+- [Mirroring Microsoft Learn](#mirroring-microsoft-learn) — cutting a product over to a docs mirror
 - [Commands](#commands) — the CLI reference
 - [Configuration](#configuration) — the `dailynews.config.js` schema
 - [Adding a new product](#adding-a-new-product) — the runbook, and a prompt for an AI agent
@@ -178,6 +190,35 @@ npm run engine:link
 - Kit: creates and schedules the daily subscriber broadcast, guarded against
   double sends by a marker (see [Design rules](#design-rules)). A product can
   ship without email entirely.
+
+## Mirroring Microsoft Learn
+
+The monitor diffs commits in a documentation repository. When that repository
+is no longer public, [merill/learn-mirror](https://github.com/merill/learn-mirror)
+rebuilds it from Microsoft Learn, and the monitor clones the mirror instead.
+
+Each mirror has the same layout as the original repository, because every page
+is written to the source path Learn records for it. A product's `trackedPaths`
+and `learnRoutes` therefore work against the mirror unchanged.
+
+The mirror tool lives in its own public repository because the mirrors are
+public, and GitHub lets only private repositories use a private repository's
+actions.
+
+**Cutting a product over** to its mirror:
+
+1. Clone the mirror in place of the documentation repository. Change every
+   workflow that clones it: the monitor, the site build, and the site
+   verification. Keep the clone directory, `build.docsCloneDir`, as it is.
+2. Set `TARGET_REPO_OWNER` and `TARGET_REPO_NAME` on the monitor step, so each
+   change's GitHub link points at the mirror.
+3. Set `docsHead` in `website/monitor-state.json` to a commit in the mirror.
+   Otherwise the monitor finds the old cursor unreachable, falls back to the last
+   24 hours, and reports the mirror's baseline as thousands of new pages.
+
+The site build reads the clone only to find the parent commits of recent changes
+that lack a stored `baseCommitSha`. Recorded changes carry one, so history built
+from the original repository still renders after the cutover.
 
 ## Commands
 
