@@ -21,7 +21,7 @@ rebuilds from Microsoft Learn itself — see
 
 | Mirror repository | Stands in for | Product cut over |
 |---|---|---|
-| `merill/intune-docs-mirror` | `MicrosoftDocs/memdocs` | not yet |
+| `merill/intune-docs-mirror` | `MicrosoftDocs/memdocs` (archived 2026-09-02) | yes |
 | `merill/defender-docs-mirror` | `MicrosoftDocs/defender-docs` | yes |
 | `merill/entra-docs-mirror` | `MicrosoftDocs/entra-docs` | not yet |
 
