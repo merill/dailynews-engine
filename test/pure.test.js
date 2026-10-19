@@ -6,7 +6,7 @@ const { ALPHA } = require('./fixtures/profile');
 // static-site reads the config at module load, so it has to be set first.
 setConfig(ALPHA);
 const {
-  slugify, sanitizeMcHtml, formattedDiff, findRelatedItems, isProductMessage
+  slugify, sanitizeMcHtml, formattedDiff, repairBlockDiffHtml, findRelatedItems, isProductMessage
 } = require('../src/static-site');
 
 test('slugify produces url-safe, collapsed slugs', () => {
@@ -29,6 +29,31 @@ test('formattedDiff renders a word-level diff of the changed extract', () => {
   assert.match(html, /<del[^>]*>removed<\/del>/);
   assert.match(html, /<ins[^>]*>added<\/ins>/);
   assert.match(html, /context stays/);
+});
+
+test('repairBlockDiffHtml closes a paragraph that htmldiff left open around a heading', () => {
+  assert.equal(
+    repairBlockDiffHtml('<p>Intro <h2>Title</p> rest</h2><p>After</p>'),
+    '<p>Intro </p><h2>Title rest</h2><p>After</p>'
+  );
+  // Well-formed markup passes through, apart from dropping empty paragraphs.
+  const clean = '<p>One</p><h2>Two</h2><p>Three</p><p></p>';
+  assert.equal(repairBlockDiffHtml(clean), '<p>One</p><h2>Two</h2><p>Three</p>');
+});
+
+test('formattedDiff stays fast on a large page of headings and tables', () => {
+  // Shaped like Sentinel's data-connectors-reference.md, whose 341 KB diff
+  // took ~15 minutes when the heading repair was a backtracking regex. This
+  // one is ~50 KB: seconds before the fix, milliseconds after.
+  let patch = '@@ -1 +1 @@\n';
+  for (let i = 0; i < 400; i += 1) {
+    patch += `+## Connector ${i}\n+\n+Paragraph about connector ${i} with some text.\n+\n+| Attribute | Value |\n+| --- | --- |\n+| Vendor | V${i} |\n+\n`;
+  }
+  const started = process.hrtime.bigint();
+  const html = formattedDiff(patch);
+  const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+  assert.match(html, /Connector 399/);
+  assert.ok(seconds < 2, `formattedDiff took ${seconds.toFixed(1)}s`);
 });
 
 test('isProductMessage matches on the configured service pattern', () => {

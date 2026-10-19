@@ -438,16 +438,38 @@ function renderLearnDocumentMarkdown(markdown = '') {
 }
 
 function repairBlockDiffHtml(value = '') {
-  let html = String(value);
-  const paragraphHeadingOverlap = /(<p\b[^>]*>)([\s\S]*?)(<h([1-6])\b[^>]*>)([\s\S]*?)(<\/p>)([\s\S]*?)(<\/h\4>)/gi;
-  let previous;
-  do {
-    previous = html;
-    html = html.replace(paragraphHeadingOverlap, (_match, paragraphOpen, paragraphBody, headingOpen, _level, headingBody, _paragraphClose, headingRemainder, headingClose) =>
-      `${paragraphOpen}${paragraphBody}</p>${headingOpen}${headingBody}${headingRemainder}${headingClose}`
-    );
-  } while (html !== previous);
-  return html.replace(/<p(?:\s[^>]*)?><\/p>/g, '');
+  // htmldiff can open a heading inside a paragraph and close the paragraph
+  // inside the heading: <p>…<h2>…</p>…</h2>. Close the paragraph before the
+  // heading and drop its stray </p>. This walks the p/h tags once, so it stays
+  // linear; the backtracking regex it replaces took ~15 minutes on a 341 KB
+  // diff (Sentinel's data-connectors-reference.md).
+  const html = String(value);
+  let out = '';
+  let last = 0;
+  let paragraphOpen = false;
+  let heading = null;
+  for (const match of html.matchAll(/<(\/?)(p|h[1-6])\b[^>]*>/gi)) {
+    const [tag, closing, rawName] = match;
+    const name = rawName.toLowerCase();
+    out += html.slice(last, match.index);
+    last = match.index + tag.length;
+    if (name === 'p') {
+      if (closing && heading?.closedParagraph) {
+        heading.closedParagraph = false;
+        continue;
+      }
+      paragraphOpen = !closing;
+    } else if (!closing) {
+      heading = { level: name, closedParagraph: paragraphOpen };
+      if (paragraphOpen) out += '</p>';
+      paragraphOpen = false;
+    } else if (heading?.level === name) {
+      heading = null;
+    }
+    out += tag;
+  }
+  out += html.slice(last);
+  return out.replace(/<p(?:\s[^>]*)?><\/p>/g, '');
 }
 
 function formattedDiff(patch = '') {
@@ -1343,4 +1365,4 @@ class StaticSiteGenerator {
   }
 }
 
-module.exports = { StaticSiteGenerator, PRODUCTS, TOPICS, isProductMessage, classifyProduct, classifyTopic, extractMarkdownMetadata, findRelatedItems, selectRelatedItems, sanitizeMcHtml, slugify, formattedDiff, renderMarkdownDiff, dailySummaryText, renderDailyRss };
+module.exports = { StaticSiteGenerator, PRODUCTS, TOPICS, isProductMessage, classifyProduct, classifyTopic, extractMarkdownMetadata, findRelatedItems, selectRelatedItems, sanitizeMcHtml, slugify, formattedDiff, repairBlockDiffHtml, renderMarkdownDiff, dailySummaryText, renderDailyRss };
