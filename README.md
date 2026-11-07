@@ -12,7 +12,19 @@ practice, no dependencies at all.
 |---|---|---|
 | `merill/daily-intune` | daily.intune.admin.news | `MicrosoftDocs/memdocs` |
 | `merill/entra-doc-diff` | daily.entra.news | `MicrosoftDocs/entra-docs` |
-| `merill/daily-defender` | daily.defender.admin.news | `MicrosoftDocs/defender-docs` |
+| `merill/daily-defender` | daily.defender.admin.news | `merill/defender-docs-mirror` |
+| `merill/daily-purview` | daily.purview.admin.news | `merill/purview-docs-mirror` |
+| `merill/daily-exchange` | daily.exchange.admin.news | `merill/exchange-docs-mirror` |
+| `merill/daily-sharepoint` | daily.sharepoint.admin.news | `merill/sharepoint-docs-mirror` |
+| `merill/daily-teams` | daily.teams.admin.news | `merill/teams-docs-mirror` |
+| `merill/daily-windows-server` | daily.windowsserver.admin.news | `merill/windows-server-docs-mirror` |
+| `merill/daily-zerotrust` | daily.zerotrust.admin.news | `merill/security-docs-mirror` |
+
+A `*-docs-mirror` repository stands in for a docset Microsoft does not publish
+publicly: [learn-mirror](https://github.com/merill/learn-mirror) rebuilds it from
+Microsoft Learn, one commit per crawl that found a change, at the path of the
+source file each page was built from. The engine reads it exactly as it reads a
+MicrosoftDocs repository.
 
 ## Contents
 
@@ -193,6 +205,9 @@ Run from a product repository. The working directory is where
 | `dailynews publish-kit` | Publish the daily broadcast to Kit | `--auto`, `--date=` |
 | `dailynews regenerate-diffs` | Re-summarise changes that are not AI-generated | `--dates=` (required) |
 | `dailynews serve` | Serve `website/` for local preview | `--port=`, `--host=` |
+| `dailynews clone-docs` | Clone `docs.source` into `build.docsCloneDir` | `--filter=none` (full blobs, for backfill), `--print` |
+| `dailynews backfill` | Deterministic archive from the docs history; no OpenAI calls | `--start=` (required), `--end=`, `--repo=` |
+| `dailynews brand-assets` | Favicons, header logo and Open Graph card from one mark (needs `rsvg-convert`) | `--mark=` (required), `--deck=` |
 
 Each subcommand runs its script in a child process rather than requiring it. The
 scripts are the same files a product used to run directly, and some guard their
@@ -254,6 +269,7 @@ renders that mentions the product belongs here, so the markup stays neutral.
 |---|---|
 | `email.enabled` | `true` — set `false` to remove every signup affordance |
 | `analytics.piqoSite` | `''` |
+| `docs.source` | `{ owner: 'MicrosoftDocs', repo: build.docsCloneDir, branch: 'main' }` — the repository the monitor reads, clones and links to |
 | `docs.areas.stripPrefix` | `null` — for a repository whose paths are already Learn paths |
 | `taxonomy.searchAliases` | `{}` |
 | `taxonomy.products[].icon`, `topics[].icon` | `{ file: '<slug>.svg' }` |
@@ -271,6 +287,35 @@ first, or it is never reached. Assert the ordering in the product's tests.
 Classification rules take an optional `scope` (`'title'` or `'text'`, default
 `'text'`) and an optional `unless` guard, for the case where a broader product
 name appears inside a narrower one.
+
+## What a product repository contains
+
+Since v1.2.0 a product is configuration and assets only:
+
+```
+dailynews.config.js        everything product-specific
+assets/site/               favicons, OG card, ui/<logo>, products/*.svg, topics/*.svg
+src/test-product.js        defineProductConformance({...}) plus its own cases
+.github/workflows/*.yml    ~20-line callers of the engine's reusable workflows
+website/                   the committed, generated site
+```
+
+The engine supplies the rest:
+
+- **Reusable workflows** `product-monitor.yml`, `product-build.yml`,
+  `product-verify.yml` and `product-test.yml`. A product keeps only its schedule
+  and its manual inputs, and calls them with `secrets: inherit`.
+- **`@merill/dailynews-engine/product-conformance`**: the checks every product
+  used to copy (config valid, icons and brand assets committed, every product
+  reachable, workflows pinned to one tag, no workflow input in a `run:` block, no
+  sibling product's name left behind) plus, for a mirror, a check that every page
+  the crawl recorded routes to the URL it was fetched from.
+- **Shared browser assets**: the 14 UI icons, `learn-diff.js` and
+  `diff-config.js` live in `assets/site/` here. A product file of the same name
+  still wins, so the three original products are unchanged until they delete
+  their copies. The engine's `learn-diff.js` reads the product's own token key;
+  the copies in `daily-defender` and `daily-intune` read Intune's.
+- **`scripts/link-product.js`**, run as `npm run engine:link` from a product.
 
 ## Adding a new product
 
@@ -303,10 +348,11 @@ name appears inside a narrower one.
    Getting one wrong breaks every link for that service while the site looks
    entirely healthy.
 
-3. **Create the repository from an existing product.** Copy the workflows,
-   `scripts/link-engine.js`, and the shared UI SVGs from `assets/site/ui/`. Write
-   `dailynews.config.js`. Remove the Kit workflow if the product ships without
-   email.
+3. **Create the repository from `merill/daily-purview`**, the first product built
+   on v1.2.0. Copy its `package.json`, `src/test-product.js` and the four workflow
+   callers; nothing else needs copying (see
+   [What a product repository contains](#what-a-product-repository-contains)).
+   Write `dailynews.config.js`, with `docs.source` naming the repository.
 
 4. **Source icons.** Product and topic icons come from
    `github.com/DanielBradley1/msicons`. Where a service has no mark of its own,
@@ -320,18 +366,19 @@ name appears inside a narrower one.
    rsvg-convert -w 32 -h 32 mark.svg -o assets/site/favicon-32x32.png
    ```
 
-6. **Backfill the archive.** `scripts/generate-historical-data.js` walks the
-   documentation history and writes deterministic daily reports and period
+6. **Backfill the archive.** `dailynews backfill` walks the documentation history and writes deterministic daily reports and period
    briefs. It makes no OpenAI calls, so it costs nothing.
 
    It needs a clone with real blobs. A `--filter=blob:limit=100k` clone fails
    partway through with `could not fetch ... from promisor remote`:
 
    ```bash
-   git clone --single-branch --branch <branch> --shallow-since=<start-minus-a-month> \
-     https://github.com/<owner>/<repo>.git ../<clone-dir>
-   TZ=UTC node scripts/generate-historical-data.js --repo=../<clone-dir> --start=YYYY-MM-DD
+   dailynews clone-docs --filter=none
+   TZ=UTC dailynews backfill --start=YYYY-MM-DD
    ```
+
+   For a mirror, start the day after its first commit: that commit imports every
+   page at once and would otherwise be recorded as hundreds of new articles.
 
 7. **Build and look at the site.** `npm run build:site`, then `npm run dev`. Open
    it. Read a day brief and a detail page.

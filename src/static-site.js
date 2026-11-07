@@ -1,4 +1,5 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const moment = require('moment-timezone');
 const { marked } = require('marked');
@@ -239,8 +240,9 @@ function extractMarkdownMetadata(patch = '', filename = '') {
   const description = joined.match(/^description:\s*["']?(.+?)["']?\s*$/mi)?.[1]
     || usable.find(line => line && !/^(---|title:|titleSuffix:|description:|ms\.|#|<!--|\[!)/i.test(line.trim()))
     || `A ${SITE.productName} documentation page was updated: ${title}.`;
+  const suffix = config.docs.titleSuffix;
   return {
-    title: truncate(title.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1'), 150),
+    title: truncate((suffix ? title.replace(suffix, '') : title).replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1'), 150),
     description: String(description).replace(/\s+/g, ' ').trim()
   };
 }
@@ -656,7 +658,19 @@ let timer;const queue=()=>{clearTimeout(timer);if(!hasQuery()){resetSearch();ret
 }
 `;
 
+// The chrome every product renders with. These used to be copied into each
+// product's assets/site/ui; the engine now carries them, and a product file of
+// the same name still wins, so a product that has its own copy is unchanged.
+const SHARED_UI_ASSETS = ['rss.svg','maester.png','book-bookmark.svg','calendar-date.svg','calendar-planning.svg','calendar-days.svg','square-layout-grid-2.svg','compare-items.svg','magnifier.svg','chevron-down.svg','chevron-right.svg','microsoft.svg','github.svg','chart-history.svg'];
+const ENGINE_ASSET_DIR = path.join(__dirname, '..', 'assets', 'site');
+
 class StaticSiteGenerator {
+  // A product's own copy of a shared asset, or the engine's when it has none.
+  sharedAsset(relative) {
+    const own = path.join(this.siteAssetDir, relative);
+    return fsSync.existsSync(own) ? own : path.join(ENGINE_ASSET_DIR, relative);
+  }
+
   constructor(options = {}) {
     this.websiteDir = path.resolve(options.websiteDir || 'website');
     this.mcDataPath = path.resolve(options.mcDataPath || process.env.MC_DATA_PATH || path.join(process.cwd(), '../mc/@data'));
@@ -1288,8 +1302,8 @@ class StaticSiteGenerator {
       await fs.copyFile(path.join(this.siteAssetDir,asset),path.join(this.websiteDir,asset));
     }
     await fs.mkdir(path.join(this.websiteDir,'assets','ui'),{recursive:true});
-    for (const asset of ['rss.svg','maester.png','book-bookmark.svg','calendar-date.svg','calendar-planning.svg','calendar-days.svg','square-layout-grid-2.svg','compare-items.svg','magnifier.svg','chevron-down.svg','chevron-right.svg','microsoft.svg','github.svg','chart-history.svg',...config.brand.uiAssets]) {
-      await fs.copyFile(path.join(this.siteAssetDir,'ui',asset),path.join(this.websiteDir,'assets','ui',asset));
+    for (const asset of [...SHARED_UI_ASSETS,...config.brand.uiAssets]) {
+      await fs.copyFile(this.sharedAsset(path.join('ui',asset)),path.join(this.websiteDir,'assets','ui',asset));
     }
     await fs.rm(path.join(this.websiteDir,'assets','products'),{recursive:true,force:true});
     await fs.mkdir(path.join(this.websiteDir,'assets','products'),{recursive:true});
@@ -1301,8 +1315,8 @@ class StaticSiteGenerator {
     for (const asset of (await fs.readdir(path.join(this.siteAssetDir,'topics'))).filter(file => file.endsWith('.svg'))) {
       await fs.copyFile(path.join(this.siteAssetDir,'topics',asset),path.join(this.websiteDir,'assets','topics',asset));
     }
-    await fs.copyFile(path.join(this.siteAssetDir,'learn-diff.js'),path.join(this.websiteDir,'assets','learn-diff.js'));
-    await fs.copyFile(path.join(this.siteAssetDir,'diff-config.js'),path.join(this.websiteDir,'assets','diff-config.js'));
+    await fs.copyFile(this.sharedAsset('learn-diff.js'),path.join(this.websiteDir,'assets','learn-diff.js'));
+    await fs.copyFile(this.sharedAsset('diff-config.js'),path.join(this.websiteDir,'assets','diff-config.js'));
     await fs.mkdir(path.join(this.websiteDir,'assets','vendor'),{recursive:true});
     for (const [pkg, file, target] of [
       ['marked', 'lib/marked.umd.js', 'marked.js'],

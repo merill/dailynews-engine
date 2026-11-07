@@ -1,0 +1,21 @@
+name: Product tests
+
+# Reusable: runs a product's conformance suite against the engine. The mirror
+# clone is made so the route check over every crawled page actually runs.
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up the dailynews engine
+        uses: merill/dailynews-engine/.github/actions/setup@v1.2.0
+      - name: Clone the documentation source
+        run: dailynews clone-docs
+      - run: npm test

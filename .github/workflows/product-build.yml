@@ -1,0 +1,47 @@
+name: Product site build
+
+# Reusable: rebuilds and commits a product's site when its configuration,
+# assets or engine version change. Called from the product's push trigger.
+
+on:
+  workflow_call:
+
+jobs:
+  build-website:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    # Shares the monitor's group, so a rebuild never races a refresh.
+    concurrency:
+      group: ${{ github.repository }}-docs-monitor
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up the dailynews engine
+        uses: merill/dailynews-engine/.github/actions/setup@v1.2.0
+      - name: Clone the documentation source
+        run: dailynews clone-docs --filter=blob:none
+      - name: Clone Message Center repository
+        run: git clone --depth 1 https://github.com/merill/mc.git mc
+      - name: Pin the site generation time to the last refresh
+        run: echo "SITE_GENERATED_AT=$(node -p "require('./website/refresh-status.json').lastCheckedAt")" >> "$GITHUB_ENV"
+      - name: Build generated website
+        env:
+          MC_DATA_PATH: ./mc/@data
+          KIT_DAILY_FORM_UID: ${{ secrets.KIT_DAILY_FORM_UID }}
+          KIT_DAILY_FORM_EMBED_SRC: ${{ secrets.KIT_DAILY_FORM_EMBED_SRC }}
+          USERJOT_PROJECT_ID: ${{ vars.USERJOT_PROJECT_ID }}
+        run: dailynews build-site && dailynews search-index
+      - name: Commit generated website
+        run: |
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          git add website/
+          if git diff --staged --quiet; then
+            echo 'Generated website is already current.'
+          else
+            NAME="$(node -p "require('@merill/dailynews-engine/config').getConfig().site.name")"
+            git commit -m "Rebuild $NAME website for ${GITHUB_SHA::7}"
+            git push
+          fi

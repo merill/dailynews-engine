@@ -93,13 +93,36 @@ function normalizeRoutes(routes, field, where) {
 // How a path in the documentation repository maps to a public Microsoft Learn
 // URL and to the heading a report groups it under. `areas.stripPrefix` is
 // optional: a repository whose paths are already Learn paths omits it.
-function normalizeDocs(docs) {
+//
+// `source` names the repository the monitor reads and links to. It defaults to
+// MicrosoftDocs/<build.docsCloneDir> on `main`, which is what every product read
+// before Microsoft stopped publishing some docsets publicly; a product that reads
+// a mirror rebuilt from Learn names it here instead of in each workflow.
+function normalizeSource(raw, docsCloneDir) {
+  const source = raw || {};
+  const pick = (value, fallback, field) => (value === undefined ? fallback : requireString(value, field));
+  return Object.freeze({
+    owner: pick(source.owner, 'MicrosoftDocs', 'docs.source.owner'),
+    repo: pick(source.repo, docsCloneDir, 'docs.source.repo'),
+    branch: pick(source.branch, 'main', 'docs.source.branch')
+  });
+}
+
+function normalizeDocs(docs, docsCloneDir) {
   const raw = docs || {};
   const areas = raw.areas || {};
   if (areas.stripPrefix !== undefined && areas.stripPrefix !== null) {
     requireRegExp(areas.stripPrefix, 'docs.areas.stripPrefix');
   }
+  // Optional: removed from every page title. A mirror rebuilt from Learn keeps
+  // Learn's rendered title, which ends in " | Microsoft Learn". Opt-in, because
+  // titles become change URLs and an existing product would see them all move.
+  if (raw.titleSuffix !== undefined && raw.titleSuffix !== null) {
+    requireRegExp(raw.titleSuffix, 'docs.titleSuffix');
+  }
   return {
+    source: normalizeSource(raw.source, docsCloneDir),
+    titleSuffix: raw.titleSuffix || null,
     learnRootUrl: requireString(raw.learnRootUrl, 'docs.learnRootUrl'),
     trackedPaths: requireRegExp(raw.trackedPaths, 'docs.trackedPaths'),
     learnRoutes: normalizeRoutes(raw.learnRoutes, 'path', 'docs.learnRoutes'),
@@ -256,7 +279,7 @@ function normalize(raw) {
       forbiddenOpeners: normalizeStrings((raw.ai || {}).forbiddenOpeners, 'ai.forbiddenOpeners'),
       impactBoost: requireRegExp((raw.ai || {}).impactBoost, 'ai.impactBoost')
     },
-    docs: normalizeDocs(raw.docs),
+    docs: normalizeDocs(raw.docs, requireString((raw.build || {}).docsCloneDir, 'build.docsCloneDir')),
     // A product without a subscriber list renders no signup affordances at all,
     // rather than a form that cannot load. Defaults to on: a product that says
     // nothing has an email, which is true of every product that existed when
@@ -314,7 +337,7 @@ function runRoute(routes, subject) {
   const text = String(subject ?? '');
   for (const route of routes) {
     const hit = text.match(route.match);
-    if (hit) return route.template.replace(/\$(\d)/g, (token, index) => hit[Number(index)] ?? token);
+    if (hit) return route.template.replace(/\$(\d)/g, (token, index) => (Number(index) < hit.length ? (hit[Number(index)] ?? '') : token));
   }
   return null;
 }
