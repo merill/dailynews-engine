@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up the dailynews engine
-        uses: merill/dailynews-engine/.github/actions/setup@v1.4.2
+        uses: merill/dailynews-engine/.github/actions/setup@v1.4.3
       - name: Clone the documentation source
         run: dailynews clone-docs --filter=blob:none
       - name: Clone Message Center repository

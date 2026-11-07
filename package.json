@@ -1,6 +1,6 @@
 {
   "name": "@merill/dailynews-engine",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "description": "Shared engine behind the Daily.*.News sites: documentation monitor, static site generator, search index, and publishers.",
   "license": "MIT",

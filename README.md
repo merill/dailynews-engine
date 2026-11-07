@@ -85,7 +85,8 @@ fails on it.
 
 ```
 bin/dailynews.js        dispatcher: monitor | build-site | search-index |
-                        summaries | publish-kit | regenerate-diffs | serve
+                        summaries | publish-kit | regenerate-diffs |
+                        prune-metadata | serve
 src/
   config.js             load, normalise, validate; getConfig/setConfig
   monitor-docs.js       poll the docs repo and Message Center, write reports
@@ -205,6 +206,7 @@ Run from a product repository. The working directory is where
 | `dailynews summaries` | Generate period briefs | `--all`, `--current`, `--dates=`, `--days`, `--weeks`, `--months`, `--force`, `--ignore-budget` |
 | `dailynews publish-kit` | Publish the daily broadcast to Kit | `--auto`, `--date=` |
 | `dailynews regenerate-diffs` | Re-summarise changes that are not AI-generated | `--dates=` (required) |
+| `dailynews prune-metadata` | Drop changes that touched only front matter from saved reports | `--dates=` (required) |
 | `dailynews serve` | Serve `website/` for local preview | `--port=`, `--host=` |
 | `dailynews clone-docs` | Clone `docs.source` into `build.docsCloneDir` | `--filter=none` (full blobs, for backfill), `--print` |
 | `dailynews backfill` | Deterministic archive from the docs history; no OpenAI calls | `--start=` (required), `--end=`, `--repo=` |
@@ -223,6 +225,15 @@ change the model still fails on keeps its fallback text, and the run ends by lis
 the dates to rerun. A rerun sends only the changes still without a model summary, so
 it costs nothing for work already done. The run fails only if no summary came back
 at all.
+
+A change whose page body is identical before and after its commit touched only the
+front matter (`ms.date`, authors, or the taxonomy links a Learn crawl records) and is
+not reported. The monitor compares the two revisions rather than reading the patch:
+a hunk that starts below line one shows neither YAML delimiter, and before v1.4.3
+those changes were reported, summarised and briefed as updates. `prune-metadata`
+applies the same test to saved reports using the documentation clone; a
+`backfill_dates` run of `product-monitor.yml` runs it before regenerating summaries
+and briefs, so those briefs are rewritten from what remains.
 
 ### Reaching a command as a module
 
