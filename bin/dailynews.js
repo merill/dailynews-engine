@@ -19,7 +19,10 @@ const COMMANDS = {
   summaries: '../scripts/generate-period-summaries.js',
   'publish-kit': '../scripts/publish-kit-broadcast.js',
   'regenerate-diffs': '../scripts/regenerate-diff-summaries.js',
-  serve: '../scripts/serve-site.js'
+  serve: '../scripts/serve-site.js',
+  'clone-docs': '../scripts/clone-docs.js',
+  backfill: '../scripts/backfill.js',
+  'brand-assets': '../scripts/brand-assets.js'
 };
 
 const [command, ...rest] = process.argv.slice(2);

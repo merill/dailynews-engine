@@ -27,9 +27,11 @@ const config = getConfig();
 
 class DocsMonitor {
   constructor(options = {}) {
-    this.targetRepo = { 
-      owner: process.env.TARGET_REPO_OWNER || 'MicrosoftDocs', 
-      repo: process.env.TARGET_REPO_NAME || config.build.docsCloneDir 
+    // The environment still wins, so a workflow that sets these keeps working.
+    this.targetRepo = {
+      owner: process.env.TARGET_REPO_OWNER || config.docs.source.owner,
+      repo: process.env.TARGET_REPO_NAME || config.docs.source.repo,
+      branch: process.env.TARGET_REPO_BRANCH || config.docs.source.branch
     };
     
     // Repository paths
@@ -301,7 +303,7 @@ class DocsMonitor {
           commitMessage: commit.message,
           commitAuthor: commit.author_name,
           commitDate: commit.date,
-          githubUrl: `https://github.com/${this.targetRepo.owner}/${this.targetRepo.repo}/blob/main/${file.filename}`,
+          githubUrl: `https://github.com/${this.targetRepo.owner}/${this.targetRepo.repo}/blob/${this.targetRepo.branch}/${file.filename}`,
           publicDocsUrl: this.generatePublicDocsUrl(file.filename),
           eventId: documentationEventId({ commitSha: commit.hash, status: file.status, filename: file.filename }),
           firstSeenAt: this.now().toISOString()

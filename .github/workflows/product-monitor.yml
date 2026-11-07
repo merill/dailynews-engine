@@ -1,0 +1,164 @@
+name: Product docs monitor
+
+# Reusable: a product repository calls this on its own schedule. The repository,
+# branch and clone directory come from the product's dailynews.config.js
+# (docs.source), so a product's workflow names none of them.
+#
+#   jobs:
+#     monitor:
+#       uses: merill/dailynews-engine/.github/workflows/product-monitor.yml@v1.2.0
+#       permissions: { contents: write }
+#       secrets: inherit
+#       with: { ... the manual-dispatch inputs, passed through ... }
+
+on:
+  workflow_call:
+    inputs:
+      backfill_period_summaries:
+        type: boolean
+        default: false
+      regenerate_current_period_summaries:
+        type: boolean
+        default: false
+      backfill_dates:
+        type: string
+        default: ''
+      openai_model:
+        type: string
+        default: gpt-5.6-luna
+      period_summary_budget_usd:
+        type: string
+        default: '1.25'
+
+jobs:
+  monitor-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    concurrency:
+      group: ${{ github.repository }}-docs-monitor
+      cancel-in-progress: false
+    steps:
+      - name: Signal scheduled refresh start
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
+        run: |
+          if [ -z "$HEALTHCHECKS_PING_URL" ]; then
+            echo "HEALTHCHECKS_PING_URL is not configured; skipping the external heartbeat."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 10 --retry 3 "${HEALTHCHECKS_PING_URL%/}/start"
+
+      - uses: actions/checkout@v4
+
+      - name: Set up the dailynews engine
+        uses: merill/dailynews-engine/.github/actions/setup@v1.2.0
+
+      - name: Clone the documentation source
+        run: dailynews clone-docs
+
+      - name: Clone Message Center repository
+        run: git clone --depth 1 https://github.com/merill/mc.git mc
+
+      - name: Run docs and Message Center monitor
+        if: inputs.backfill_dates == ''
+        id: monitor
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_SUMMARY_MODEL: ${{ inputs.openai_model }}
+          OPENAI_SUMMARY_REASONING_EFFORT: xhigh
+          OPENAI_SUMMARY_CONCURRENCY: '3'
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ENABLED: ${{ inputs.backfill_period_summaries != true }}
+          MC_DATA_PATH: ./mc/@data
+          USERJOT_PROJECT_ID: ${{ vars.USERJOT_PROJECT_ID }}
+          GITHUB_ACTIONS: 'true'
+        run: dailynews monitor
+
+      - name: Regenerate recovered per-change summaries
+        if: inputs.backfill_dates != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_SUMMARY_MODEL: ${{ inputs.openai_model }}
+          OPENAI_SUMMARY_REASONING_EFFORT: xhigh
+          OPENAI_SUMMARY_CONCURRENCY: '3'
+          BACKFILL_DATES: ${{ inputs.backfill_dates }}
+        run: dailynews regenerate-diffs --dates="$BACKFILL_DATES"
+
+      - name: Generate daily, weekly, and monthly editorial briefs
+        if: steps.monitor.outputs.content_changed == 'true' || inputs.backfill_period_summaries || inputs.regenerate_current_period_summaries || inputs.backfill_dates != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PERIOD_SUMMARY_MODEL: ${{ inputs.openai_model }}
+          OPENAI_PERIOD_SUMMARY_REASONING_EFFORT: xhigh
+          OPENAI_PERIOD_SUMMARY_BUDGET_USD: ${{ inputs.period_summary_budget_usd }}
+          OPENAI_PERIOD_SUMMARY_DAILY_BUDGET_USD: '0.25'
+          MC_DATA_PATH: ./mc/@data
+          BACKFILL_DATES: ${{ inputs.backfill_dates }}
+          REGENERATE_CURRENT: ${{ inputs.regenerate_current_period_summaries }}
+          BACKFILL_PERIODS: ${{ inputs.backfill_period_summaries }}
+        run: |
+          if [ -n "$BACKFILL_DATES" ]; then
+            dailynews summaries --dates="$BACKFILL_DATES" --force
+          elif [ "$REGENERATE_CURRENT" = "true" ]; then
+            dailynews summaries --current --force --ignore-budget
+          elif [ "$BACKFILL_PERIODS" = "true" ]; then
+            dailynews summaries --all
+          else
+            dailynews summaries --current --force
+          fi
+
+      - name: Pin the site generation time to the last refresh
+        # Keeps the generated site a pure function of its inputs, so a rebuild
+        # can be compared byte for byte with what is committed.
+        run: echo "SITE_GENERATED_AT=$(node -p "require('./website/refresh-status.json').lastCheckedAt")" >> "$GITHUB_ENV"
+
+      - name: Build the static site
+        env:
+          MC_DATA_PATH: ./mc/@data
+          USERJOT_PROJECT_ID: ${{ vars.USERJOT_PROJECT_ID }}
+        run: dailynews build-site && dailynews search-index
+
+      - name: Commit and push website changes
+        run: |
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          git add website/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            NAME="$(node -p "require('@merill/dailynews-engine/config').getConfig().site.name")"
+            git commit -m "Refresh $NAME content - $(date -u +'%Y-%m-%dT%H:%MZ')"
+            git push
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  report-health:
+    needs: [monitor-docs]
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Signal scheduled pipeline result
+        continue-on-error: true
+        env:
+          HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
+          MONITOR_RESULT: ${{ needs.monitor-docs.result }}
+        run: |
+          if [ -z "$HEALTHCHECKS_PING_URL" ]; then
+            echo "HEALTHCHECKS_PING_URL is not configured; skipping the external heartbeat."
+            exit 0
+          fi
+          PING_URL="${HEALTHCHECKS_PING_URL%/}"
+          if [ "$MONITOR_RESULT" != "success" ]; then PING_URL="$PING_URL/fail"; fi
+          curl --fail --silent --show-error --max-time 10 --retry 3 "$PING_URL"
