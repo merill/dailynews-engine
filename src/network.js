@@ -7,7 +7,9 @@
 //
 // Adding a daily edition is one entry here and an engine release; each site
 // picks it up when it moves to that tag. admin.news keeps the same list in
-// src/network.js, and the two must be changed together.
+// src/network.js, and the two must be changed together. The order follows
+// the daily desk on admin.news: product groups, Windows Server beside Active
+// Directory.
 
 const HOME = { name: 'Admin.News', url: 'https://admin.news' };
 
@@ -16,11 +18,11 @@ const EDITIONS = [
   { key: 'intune', label: 'Intune', name: 'Daily Intune News', url: 'https://daily.intune.admin.news' },
   { key: 'defender', label: 'Defender', name: 'Daily Defender News', url: 'https://daily.defender.admin.news' },
   { key: 'security', label: 'Security', name: 'Daily Security News', url: 'https://daily.security.admin.news' },
+  { key: 'windows-server', label: 'Windows Server', name: 'Daily Windows Server News', url: 'https://daily.windowsserver.admin.news' },
   { key: 'purview', label: 'Purview', name: 'Daily Purview News', url: 'https://daily.purview.admin.news' },
   { key: 'exchange', label: 'Exchange', name: 'Daily Exchange News', url: 'https://daily.exchange.admin.news' },
   { key: 'sharepoint', label: 'SharePoint', name: 'Daily SharePoint News', url: 'https://daily.sharepoint.admin.news' },
-  { key: 'teams', label: 'Teams', name: 'Daily Teams News', url: 'https://daily.teams.admin.news' },
-  { key: 'windows-server', label: 'Windows Server', name: 'Daily Windows Server News', url: 'https://daily.windowsserver.admin.news' }
+  { key: 'teams', label: 'Teams', name: 'Daily Teams News', url: 'https://daily.teams.admin.news' }
 ];
 
 const hostOf = url => new URL(url).host;
