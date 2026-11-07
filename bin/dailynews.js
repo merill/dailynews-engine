@@ -19,6 +19,7 @@ const COMMANDS = {
   summaries: '../scripts/generate-period-summaries.js',
   'publish-kit': '../scripts/publish-kit-broadcast.js',
   'regenerate-diffs': '../scripts/regenerate-diff-summaries.js',
+  'prune-metadata': '../scripts/prune-metadata-only.js',
   serve: '../scripts/serve-site.js',
   'clone-docs': '../scripts/clone-docs.js',
   backfill: '../scripts/backfill.js',

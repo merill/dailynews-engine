@@ -6,7 +6,7 @@ name: Product docs monitor
 #
 #   jobs:
 #     monitor:
-#       uses: merill/dailynews-engine/.github/workflows/product-monitor.yml@v1.4.2
+#       uses: merill/dailynews-engine/.github/workflows/product-monitor.yml@v1.4.3
 #       permissions: { contents: write, id-token: write }
 #       secrets: inherit
 #       with: { ... the manual-dispatch inputs, passed through ... }
@@ -62,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up the dailynews engine
-        uses: merill/dailynews-engine/.github/actions/setup@v1.4.2
+        uses: merill/dailynews-engine/.github/actions/setup@v1.4.3
 
       - name: Clone the documentation source
         run: dailynews clone-docs
@@ -83,6 +83,12 @@ jobs:
           USERJOT_PROJECT_ID: ${{ vars.USERJOT_PROJECT_ID }}
           GITHUB_ACTIONS: 'true'
         run: dailynews monitor
+
+      - name: Drop metadata-only changes from the backfilled reports
+        if: inputs.backfill_dates != ''
+        env:
+          BACKFILL_DATES: ${{ inputs.backfill_dates }}
+        run: dailynews prune-metadata --dates="$BACKFILL_DATES"
 
       - name: Regenerate recovered per-change summaries
         if: inputs.backfill_dates != ''
@@ -106,7 +112,7 @@ jobs:
           BACKFILL_PERIODS: ${{ inputs.backfill_period_summaries }}
         run: |
           if [ -n "$BACKFILL_DATES" ]; then
-            dailynews summaries --dates="$BACKFILL_DATES" --force
+            dailynews summaries --dates="$BACKFILL_DATES" --force --ignore-budget
           elif [ "$REGENERATE_CURRENT" = "true" ]; then
             dailynews summaries --current --force --ignore-budget
           elif [ "$BACKFILL_PERIODS" = "true" ]; then

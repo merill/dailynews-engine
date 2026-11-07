@@ -280,7 +280,7 @@ class DocsMonitor {
         const fileDiff = await this.getFileDiff(file.filename, commit.hash);
         
         // Skip files that only have front matter changes
-        if (this.isOnlyFrontMatterChanges(fileDiff, file.filename)) {
+        if (await this.isFrontMatterOnlyChange(file, baseCommitSha, commit.hash, fileDiff)) {
           console.log(`⏭️ Skipping ${file.filename} - only front matter changes`);
           continue;
         }
@@ -330,6 +330,27 @@ class DocsMonitor {
     console.log(`📈 Analysis complete: ${analysis.newFiles.length} new, ${analysis.modifiedFiles.length} modified, ${analysis.deletedFiles.length} deleted`);
     
     return analysis;
+  }
+
+  // A modified Markdown page whose body is identical before and after the
+  // commit changed only its metadata: ms.date, authors, or the taxonomy links a
+  // Learn crawl records. Comparing the two bodies is exact; the patch alone is
+  // not, because a hunk that starts below line one shows neither delimiter, and
+  // Learn front matter runs to thirty lines or more.
+  async isFrontMatterOnlyChange(file, baseCommitSha, commitHash, patch) {
+    if (!file.filename.endsWith('.md') || file.status !== 'modified') return false;
+    if (baseCommitSha) {
+      try {
+        const [before, after] = await Promise.all([
+          this.git.show([`${baseCommitSha}:${file.filename}`]),
+          this.git.show([`${commitHash}:${file.filename}`])
+        ]);
+        return markdownBody(before) === markdownBody(after);
+      } catch {
+        // Fall back to reading the patch when either revision is unavailable.
+      }
+    }
+    return this.isOnlyFrontMatterChanges(patch, file.filename);
   }
 
   // Check if changes are only in the front matter section of a markdown file
@@ -1286,4 +1307,17 @@ if (require.main === module) {
   monitor.run();
 }
 
+// The page text after its YAML front matter, with line endings and trailing
+// whitespace normalised so a reformatting of the metadata block is not a change.
+function markdownBody(source = '') {
+  const lines = String(source).replace(/\r\n?/g, '\n').split('\n');
+  let start = 0;
+  if (lines[0] && lines[0].trim() === '---') {
+    const closing = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+    if (closing > 0) start = closing + 1;
+  }
+  return lines.slice(start).map(line => line.trimEnd()).join('\n').trim();
+}
+
 module.exports = DocsMonitor;
+module.exports.markdownBody = markdownBody;
