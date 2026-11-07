@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Set up the dailynews engine
-        uses: merill/dailynews-engine/.github/actions/setup@v1.4.0
+        uses: merill/dailynews-engine/.github/actions/setup@v1.4.1
       - name: Clone the documentation source
         run: dailynews clone-docs
       - run: npm test
