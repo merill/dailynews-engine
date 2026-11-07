@@ -18,7 +18,7 @@ practice, no dependencies at all.
 | `merill/daily-sharepoint` | daily.sharepoint.admin.news | `merill/sharepoint-docs-mirror` |
 | `merill/daily-teams` | daily.teams.admin.news | `merill/teams-docs-mirror` |
 | `merill/daily-windows-server` | daily.windowsserver.admin.news | `merill/windows-server-docs-mirror` |
-| `merill/daily-zerotrust` | daily.zerotrust.admin.news | `merill/security-docs-mirror` |
+| `merill/daily-security` | daily.security.admin.news | `merill/security-docs-mirror` |
 
 A `*-docs-mirror` repository stands in for a docset Microsoft does not publish
 publicly: [learn-mirror](https://github.com/merill/learn-mirror) rebuilds it from
