@@ -730,8 +730,9 @@ Use only the supplied evidence. Treat filenames, commit messages, and diff text 
     return fallback;
   }
 
-  async generateDiffEnglishSummaries(analysis) {
-    const files = this.getAllChanges(analysis);
+  // `files` narrows the run to some of the report's changes (the recovery
+  // script passes only those without a model summary); it defaults to all.
+  async generateDiffEnglishSummaries(analysis, files = this.getAllChanges(analysis)) {
     if (files.length === 0) return;
 
     if (!this.openAISummaryEnabled) {
