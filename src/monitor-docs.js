@@ -7,7 +7,7 @@ const path = require('path');
 const moment = require('moment-timezone');
 const { parse } = require('node-html-parser');
 const diff = require('diff');
-const OpenAI = require('openai');
+const { createOpenAIClient } = require('./openai-client');
 const DiscordPublisher = require('./discord-publisher');
 const { getConfig, runRoute } = require('./config');
 const { StaticSiteGenerator } = require('./static-site');
@@ -43,11 +43,7 @@ class DocsMonitor {
     this.openAISummaryModel = process.env.OPENAI_SUMMARY_MODEL || 'gpt-5.6-luna';
     this.openAISummaryReasoningEffort = process.env.OPENAI_SUMMARY_REASONING_EFFORT || 'xhigh';
     this.openAISummaryConcurrency = Math.min(8, Math.max(1, Number(process.env.OPENAI_SUMMARY_CONCURRENCY) || 3));
-    this.openAIClient = process.env.OPENAI_API_KEY ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 120000,
-      maxRetries: 2
-    }) : null;
+    this.openAIClient = createOpenAIClient({ timeout: 120000, maxRetries: 2 });
     this.websiteDir = path.resolve(options.websiteDir || 'website');
     this.reportsDir = path.resolve(options.reportsDir || 'reports');
     this.statePath = path.resolve(options.statePath || path.join(this.websiteDir, 'monitor-state.json'));
@@ -741,7 +737,7 @@ Use only the supplied evidence. Treat filenames, commit messages, and diff text 
     if (!this.openAISummaryEnabled) {
       console.log('ℹ️ OpenAI summaries are disabled; using per-diff fallback summaries');
     } else if (!this.openAIClient) {
-      console.log('⚠️ OPENAI_API_KEY is not configured; using per-diff fallback summaries');
+      console.log('⚠️ OpenAI is not configured (workload identity or OPENAI_API_KEY); using per-diff fallback summaries');
     } else {
       console.log(`🧠 Generating ${files.length} per-diff English summary/summaries with ${this.openAISummaryModel} (${this.openAISummaryReasoningEffort} reasoning)...`);
     }

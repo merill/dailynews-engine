@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const moment = require('moment-timezone');
-const OpenAI = require('openai');
+const { createOpenAIClient } = require('./openai-client');
 const { getConfig } = require('./config');
 
 const config = getConfig();
@@ -114,8 +114,7 @@ class PeriodSummaryGenerator {
     this.sleep = options.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
     this.now = options.now || new Date().toISOString();
     this.logger = options.logger || console;
-    const apiKey = options.client ? '' : (options.apiKey || process.env.OPENAI_API_KEY || '');
-    this.client = options.client || (apiKey ? new OpenAI({ apiKey, maxRetries: 0, timeout: 300000 }) : null);
+    this.client = options.client || createOpenAIClient({ apiKey: options.apiKey, maxRetries: 0, timeout: 300000 });
     this.runCostUsd = 0;
     this.runUsage = { inputTokens: 0, outputTokens: 0, requests: 0 };
     this.baseUsage = { inputTokens: 0, outputTokens: 0, requests: 0, costUsd: 0 };
@@ -304,7 +303,7 @@ class PeriodSummaryGenerator {
   }
 
   async generateOne(kind, key, items, store) {
-    if (!this.client) throw new Error('No OpenAI API key is available. Run the CLI in an interactive terminal and enter the key when prompted.');
+    if (!this.client) throw new Error('OpenAI is not configured. In Actions set up workload identity; locally, set OPENAI_API_KEY or enter the key when prompted.');
     if (!this.ignoreBudget && this.runCostUsd >= this.budgetUsd) throw new Error(`Period-summary budget of $${this.budgetUsd.toFixed(2)} has been reached for this run; completed periods were saved and the backfill can be resumed`);
     const dailySpend = Number(this.baseDailyUsage.costUsd || 0) + this.runCostUsd;
     if (!this.ignoreBudget && dailySpend >= this.dailyBudgetUsd) throw new Error(`UTC-day period-summary budget of $${this.dailyBudgetUsd.toFixed(2)} has been reached; no additional requests will be started today (one in-flight request may cause a small final overshoot)`);

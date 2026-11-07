@@ -3,6 +3,7 @@
 require('dotenv').config();
 const path = require('path');
 const DocsMonitor = require('../src/monitor-docs');
+const { openAIConfigured } = require('../src/openai-client');
 const {
   allDocumentationChanges,
   readJson,
@@ -21,7 +22,7 @@ function requestedDates(argumentsList) {
 }
 
 async function main() {
-  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is required');
+  if (!openAIConfigured()) throw new Error('OpenAI is not configured: set up workload identity or OPENAI_API_KEY');
   const dates = requestedDates(process.argv.slice(2));
   const websiteDir = path.resolve(process.env.WEBSITE_DIR || 'website');
   const monitor = new DocsMonitor({ websiteDir });

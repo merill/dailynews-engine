@@ -157,7 +157,8 @@ npm run engine:link
 ### Summarising
 
 - Generates a plain-English headline, summary and administrator impact per
-  change, through OpenAI when `OPENAI_API_KEY` is set.
+  change, through OpenAI when it is configured (see
+  [OpenAI credentials](#openai-credentials)).
 - Falls back to source metadata when it is not, marking the result so the site
   can say which it is.
 - Produces day, week and month editorial briefs under a token budget, and
@@ -216,7 +217,7 @@ behaves identically whether reached through `dailynews` or run by path.
 
 `regenerate-diffs` is the tool for enriching a deterministic backfill: it selects
 changes whose `englishSummary.generatedBy` is not `openai` and regenerates them.
-It requires `OPENAI_API_KEY` and takes an explicit date list, so a large archive
+It requires OpenAI to be configured and takes an explicit date list, so a large archive
 can be done in batches.
 
 ### Reaching a command as a module
@@ -323,7 +324,8 @@ The engine supplies the rest:
 
 - A public documentation repository, and the branch it publishes from.
 - A domain, and a Cloudflare account that holds its zone.
-- `OPENAI_API_KEY` for summaries. Everything else is optional.
+- The two OpenAI workload identity variables for summaries (see
+  [OpenAI credentials](#openai-credentials)). Everything else is optional.
 
 ### Steps
 
@@ -385,7 +387,48 @@ The engine supplies the rest:
 
 8. **Deploy.** Cloudflare Pages, connected to the repository: production branch
    `main`, no build command, output directory `website`. Add the custom domain.
-   Set the repository secrets.
+   Set the OpenAI variables (not secrets) described under
+   [OpenAI credentials](#openai-credentials).
+
+### OpenAI credentials
+
+The monitor workflow uses OpenAI
+[workload identity federation](https://developers.openai.com/api/docs/guides/workload-identity-federation/github-actions):
+the job (with `permissions: id-token: write`) asks GitHub for a short-lived OIDC
+token, and the SDK exchanges it for a short-lived OpenAI token bound to a
+service account. No API key is stored in GitHub. `src/openai-client.js` makes
+that choice for every caller.
+
+In OpenAI (Organization settings, Security, Workload Identity Provider):
+
+- **Provider:** issuer `https://token.actions.githubusercontent.com`, audience
+  `https://api.openai.com/v1`. One provider serves every product.
+- **Service account mapping**, bound to a service account in the project that
+  pays for the summaries. Restrict it to the engine's monitor workflow running
+  on `main` of a product repository:
+
+  | Claim | Value |
+  |---|---|
+  | `repository` | `merill/daily-*` |
+  | `ref` | `refs/heads/main` |
+  | `job_workflow_ref` | `merill/dailynews-engine/.github/workflows/product-monitor.yml@refs/tags/v*` |
+
+  `job_workflow_ref` is the reusable workflow that actually runs, so a product
+  repository's own files cannot obtain a token by any other route. Give the
+  mapping only the `api.model.request` permission.
+
+In each product repository, set two **variables** (they identify, they do not
+authenticate):
+
+```bash
+gh variable set OPENAI_IDENTITY_PROVIDER_ID --repo merill/daily-<product> --body <provider id>
+gh variable set OPENAI_SERVICE_ACCOUNT_ID --repo merill/daily-<product> --body <service account id>
+```
+
+`OPENAI_WIF_AUDIENCE` is optional and defaults to `https://api.openai.com/v1`.
+The product's monitor caller must grant `id-token: write`; a job without it
+fails with an error that says so. Locally, `OPENAI_API_KEY` still works, and the
+summaries CLI prompts for a key when nothing is configured.
 
 ### What to look out for
 

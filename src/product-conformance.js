@@ -165,6 +165,16 @@ function defineProductConformance(options) {
     assert.ok(refs.size <= 1, `workflows pin different engine versions: ${[...refs].join(', ')}`);
   });
 
+  test('a workflow that calls the engine monitor lets it request an OIDC token', () => {
+    // The monitor authenticates to OpenAI with workload identity federation.
+    // A reusable workflow cannot hold more permissions than its caller grants,
+    // so without id-token: write every summary silently falls back.
+    for (const [name, source] of workflowSources(root)) {
+      if (!/workflows\/product-monitor\.yml@/.test(source)) continue;
+      assert.match(source, /id-token:\s*write/, `${name} calls product-monitor.yml without granting id-token: write`);
+    }
+  });
+
   test('workflow inputs never reach a run block directly', () => {
     for (const [name, source] of workflowSources(root)) {
       for (const block of source.split(/^\s*(?:-\s*)?run:/m).slice(1)) {
