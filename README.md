@@ -218,7 +218,11 @@ behaves identically whether reached through `dailynews` or run by path.
 `regenerate-diffs` is the tool for enriching a deterministic backfill: it selects
 changes whose `englishSummary.generatedBy` is not `openai` and regenerates them.
 It requires OpenAI to be configured and takes an explicit date list, so a large archive
-can be done in batches.
+can be done in batches. Each date is saved as soon as its summaries are back; a
+change the model still fails on keeps its fallback text, and the run ends by listing
+the dates to rerun. A rerun sends only the changes still without a model summary, so
+it costs nothing for work already done. The run fails only if no summary came back
+at all.
 
 ### Reaching a command as a module
 
