@@ -7,8 +7,9 @@
 //
 //   dailynews prune-metadata --dates=2026-11-06[,2026-11-07]
 //
-// It reads the documentation clone the monitor uses (LOCAL_REPO_PATH, default
-// ./temp-repo, created by `dailynews clone-docs`) and compares each modified
+// It reads the documentation clone the monitor uses (LOCAL_REPO_PATH, or the
+// product's build.docsCloneDir, where `dailynews clone-docs` and the workflows
+// put it) and compares each modified
 // page's body before and after its commit, the same test the monitor now runs.
 // Run it before `dailynews summaries --dates=... --force` so the briefs are
 // rewritten from what remains.
@@ -17,6 +18,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const DocsMonitor = require('../src/monitor-docs');
+const { getConfig } = require('../src/config');
 const { readJson, serializeAnalysis, writeJsonAtomic } = require('../src/update-state');
 
 function requestedDates(argumentsList) {
@@ -33,6 +35,7 @@ async function main() {
   const dates = requestedDates(process.argv.slice(2));
   const websiteDir = path.resolve(process.env.WEBSITE_DIR || 'website');
   const monitor = new DocsMonitor({ websiteDir });
+  monitor.localRepoPath = process.env.LOCAL_REPO_PATH || `./${getConfig().build.docsCloneDir}`;
   if (!fs.existsSync(path.join(monitor.localRepoPath, '.git'))) {
     throw new Error(`No documentation clone at ${monitor.localRepoPath}; run dailynews clone-docs first`);
   }
