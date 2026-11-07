@@ -25,7 +25,10 @@ test('no engine source names a product', () => {
   // of them.
   const named = /entra|intune|defender|\bmemdocs\b/i;
   const offenders = [];
-  for (const file of engineSources()) {
+  // src/network.js is the one deliberate exception: it is the directory of
+  // daily editions the network bar switches between, so naming every product
+  // is its job. Nothing else may.
+  for (const file of engineSources().filter(name => name !== path.join('src', 'network.js'))) {
     const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
     source.split('\n').forEach((line, index) => {
       if (named.test(line)) offenders.push(`${file}:${index + 1}: ${line.trim().slice(0, 120)}`);

@@ -390,6 +390,15 @@ The engine supplies the rest:
    Set the OpenAI variables (not secrets) described under
    [OpenAI credentials](#openai-credentials).
 
+### The daily network bar
+
+Every page carries a thin bar above the site header that switches between the
+daily editions, with Admin.News as home, and the same list in the footer. The
+list lives in `src/network.js`; a new daily edition is one entry there and an
+engine release, and every site shows it once it moves to that tag. The product
+tests fail for a site whose `site.host` is missing from the list. admin.news
+keeps the same list in its own `src/network.js`: change both together.
+
 ### OpenAI credentials
 
 The monitor workflow uses OpenAI
