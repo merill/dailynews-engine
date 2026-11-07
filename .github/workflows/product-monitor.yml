@@ -6,8 +6,8 @@ name: Product docs monitor
 #
 #   jobs:
 #     monitor:
-#       uses: merill/dailynews-engine/.github/workflows/product-monitor.yml@v1.2.0
-#       permissions: { contents: write }
+#       uses: merill/dailynews-engine/.github/workflows/product-monitor.yml@v1.3.0
+#       permissions: { contents: write, id-token: write }
 #       secrets: inherit
 #       with: { ... the manual-dispatch inputs, passed through ... }
 
@@ -36,6 +36,13 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      # OpenAI workload identity federation: the job's GitHub OIDC token is
+      # exchanged for a short-lived OpenAI token, so no API key is stored.
+      id-token: write
+    env:
+      OPENAI_IDENTITY_PROVIDER_ID: ${{ vars.OPENAI_IDENTITY_PROVIDER_ID }}
+      OPENAI_SERVICE_ACCOUNT_ID: ${{ vars.OPENAI_SERVICE_ACCOUNT_ID }}
+      OPENAI_WIF_AUDIENCE: ${{ vars.OPENAI_WIF_AUDIENCE }}
     concurrency:
       group: ${{ github.repository }}-docs-monitor
       cancel-in-progress: false
@@ -55,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up the dailynews engine
-        uses: merill/dailynews-engine/.github/actions/setup@v1.2.0
+        uses: merill/dailynews-engine/.github/actions/setup@v1.3.0
 
       - name: Clone the documentation source
         run: dailynews clone-docs
@@ -67,7 +74,6 @@ jobs:
         if: inputs.backfill_dates == ''
         id: monitor
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_SUMMARY_MODEL: ${{ inputs.openai_model }}
           OPENAI_SUMMARY_REASONING_EFFORT: xhigh
           OPENAI_SUMMARY_CONCURRENCY: '3'
@@ -81,7 +87,6 @@ jobs:
       - name: Regenerate recovered per-change summaries
         if: inputs.backfill_dates != ''
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_SUMMARY_MODEL: ${{ inputs.openai_model }}
           OPENAI_SUMMARY_REASONING_EFFORT: xhigh
           OPENAI_SUMMARY_CONCURRENCY: '3'
@@ -91,7 +96,6 @@ jobs:
       - name: Generate daily, weekly, and monthly editorial briefs
         if: steps.monitor.outputs.content_changed == 'true' || inputs.backfill_period_summaries || inputs.regenerate_current_period_summaries || inputs.backfill_dates != ''
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PERIOD_SUMMARY_MODEL: ${{ inputs.openai_model }}
           OPENAI_PERIOD_SUMMARY_REASONING_EFFORT: xhigh
           OPENAI_PERIOD_SUMMARY_BUDGET_USD: ${{ inputs.period_summary_budget_usd }}

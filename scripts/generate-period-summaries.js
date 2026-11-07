@@ -3,6 +3,7 @@
 require('dotenv').config();
 const path = require('path');
 const { PeriodSummaryGenerator } = require('../src/period-summaries');
+const { openAIConfigured } = require('../src/openai-client');
 
 function readHidden(prompt) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return Promise.resolve('');
@@ -40,8 +41,10 @@ async function main() {
     ['--weeks', 'week'],
     ['--months', 'month']
   ].filter(([flag]) => args.has(flag)).map(([, kind]) => kind);
-  const apiKey = process.env.OPENAI_API_KEY || await readHidden('OpenAI API key (input hidden): ');
-  if (!apiKey) throw new Error('An OpenAI API key is required');
+  // Workload identity in Actions; locally, an API key from the environment or
+  // typed at the prompt.
+  const apiKey = openAIConfigured() ? undefined : await readHidden('OpenAI API key (input hidden): ');
+  if (!openAIConfigured() && !apiKey) throw new Error('An OpenAI API key is required');
   if (args.has('--ignore-budget')) {
     console.warn('⚠️ Period-summary budget limits are disabled for this explicit regeneration run.');
   }
