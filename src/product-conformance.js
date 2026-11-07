@@ -165,6 +165,14 @@ function defineProductConformance(options) {
     assert.ok(refs.size <= 1, `workflows pin different engine versions: ${[...refs].join(', ')}`);
   });
 
+  test('the site is listed in the Admin.News daily network', () => {
+    // The network bar and footer switch between every daily edition; a site
+    // missing from src/network.js would show the bar with no current tab and
+    // could not be reached from its siblings.
+    const { currentEdition } = require('./network');
+    assert.ok(currentEdition(config.site.host), `${config.site.host} is not in the engine's src/network.js`);
+  });
+
   test('a workflow that calls the engine monitor lets it request an OIDC token', () => {
     // The monitor authenticates to OpenAI with workload identity federation.
     // A reusable workflow cannot hold more permissions than its caller grants,
